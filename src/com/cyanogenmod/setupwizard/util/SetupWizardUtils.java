@@ -44,7 +44,9 @@ import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 import android.hardware.fingerprint.FingerprintManager;
 import android.os.Binder;
+import android.os.SystemProperties;
 import android.os.UserHandle;
+import android.net.ConnectivityManager;
 import android.provider.Settings;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionManager;
@@ -75,6 +77,8 @@ public class SetupWizardUtils {
     private static final String GMS_PACKAGE = "com.google.android.gms";
     private static final String GMS_SUW_PACKAGE = "com.google.android.setupwizard";
     private static final String GMS_TV_SUW_PACKAGE = "com.google.android.tungsten.setupwraith";
+
+    private static final String PROP_BUILD_DATE = "ro.build.date.utc";
 
     private SetupWizardUtils(){}
 
@@ -207,6 +211,14 @@ public class SetupWizardUtils {
         disableComponentSets(context, GET_RECEIVERS | GET_SERVICES);
     }
 
+    public static boolean isEthernetConnected(Context context) {
+        ConnectivityManager cm = (ConnectivityManager) context.
+            getSystemService(Context.CONNECTIVITY_SERVICE);
+
+        return (cm.getActiveNetworkInfo() != null &&
+                cm.getActiveNetworkInfo().getType() == ConnectivityManager.TYPE_ETHERNET);
+    }
+
     public static boolean hasLeanback(Context context) {
         PackageManager packageManager = context.getPackageManager();
         return packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK);
@@ -223,7 +235,9 @@ public class SetupWizardUtils {
     }
 
     public static void disableComponentsForMissingFeatures(Context context) {
-        disableComponent(context, BluetoothSetupActivity.class);
+        if (!hasLeanback(context)) {
+            disableComponent(context, BluetoothSetupActivity.class);
+        }
         if (!hasFingerprint(context)) {
             disableComponent(context, FingerprintActivity.class);
         }
@@ -238,7 +252,8 @@ public class SetupWizardUtils {
             disableComponent(context, MobileDataActivity.class);
             disableComponent(context, ChooseDataSimActivity.class);
         }
-        if (!SetupWizardUtils.hasWifi(context)) {
+        if (!SetupWizardUtils.hasWifi(context) ||
+            isEthernetConnected(context)) {
             disableComponent(context, WifiSetupActivity.class);
         }
 
@@ -358,4 +373,8 @@ public class SetupWizardUtils {
     public static final ComponentName mTvAddAccessorySettingsActivity =
             new ComponentName("com.android.tv.settings",
                     "com.android.tv.settings.accessories.AddAccessoryActivity");
+
+    public static long getBuildDateTimestamp() {
+        return SystemProperties.getLong(PROP_BUILD_DATE, 0);
+    }
 }
